@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+latex2sympy2
+sympy
