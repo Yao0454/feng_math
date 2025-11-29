@@ -240,24 +240,33 @@ async def solve_math(request: MathRequest):
         # 预处理：把类似 '{=}' 这样的带大括号等号规范为 '='，以避免分割错误
         fixed_latex = re.sub(r'\{\s*=\s*\}', '=', fixed_latex)
 
-        # 特殊处理方程：如果包含 '='，手动分割左右两边，避免 latex2sympy 自动求解
-        if "=" in fixed_latex:
-            parts = fixed_latex.split("=")
-            if len(parts) == 2:
-                lhs_latex = parts[0].strip()
-                rhs_latex = parts[1].strip()
-                try:
-                    lhs = latex2sympy(lhs_latex)
-                    rhs = latex2sympy(rhs_latex)
-                    expr = Eq(lhs, rhs)
-                except Exception:
-                    # 如果分割解析失败，回退到默认解析
+        try:
+            # 特殊处理方程：如果包含 '='，手动分割左右两边，避免 latex2sympy 自动求解
+            if "=" in fixed_latex:
+                parts = fixed_latex.split("=")
+                if len(parts) == 2:
+                    lhs_latex = parts[0].strip()
+                    rhs_latex = parts[1].strip()
+                    try:
+                        lhs = latex2sympy(lhs_latex)
+                        rhs = latex2sympy(rhs_latex)
+                        expr = Eq(lhs, rhs)
+                    except Exception:
+                        # 如果分割解析失败，回退到默认解析
+                        expr = latex2sympy(fixed_latex)
+                else:
                     expr = latex2sympy(fixed_latex)
             else:
                 expr = latex2sympy(fixed_latex)
-        else:
-            expr = latex2sympy(fixed_latex)
+        except Exception as e:
+            print(f"Latex parsing error: {e}")
+            import traceback
+            traceback.print_exc()
+            raise e
         
+        print(f"Parsed expression type: {type(expr)}")
+        print(f"Parsed expression: {expr}")
+
         # 2. 判断是否为方程 (Equality)
         steps = []
         steps.append(r"\text{1. 解析输入: } " + latex(expr))
@@ -318,6 +327,8 @@ async def solve_math(request: MathRequest):
         return {"result": result_latex, "steps": steps}
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Calculation error: {str(e)}")
 
 if __name__ == "__main__":
